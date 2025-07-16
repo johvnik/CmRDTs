@@ -1,0 +1,15 @@
+[package]
+name = "cmrdts"
+version = "0.1.0"
+edition = "2024"
+authors = ["Johvnik"]
+description = "A collection of Commutative Replicated Data Types (CmRDTs) in rust."
+license = "MIT"
+repository = "https://github.com/johvnik/CmRDTs"
+readme = "README.md"
+keywords = []
+categories = []
+
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
