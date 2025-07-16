@@ -7,23 +7,22 @@
 
 A collection of Commutative Replicated Data Types (CmRDTs) implemented in pure Rust.
 
-This library provides a set of simple, serializable, and composable CRDTs suitable for distributed systems and local-first applications.
+This library specifically provides **operation-based** (CmRDT) implementations. While foundational types like `GCounter`, `PNCounter`, and `LWWRegister` are classically defined as state-based CRDTs (CvRDTs), the versions in this collection are built around operation logs. This ensures that every unique operation is preserved and accounted for during merges.
 
----
-## Implemented CRDTs
+The library provides a set of simple, serializable, and composable CmRDTs suitable for distributed systems and local-first applications.
+
+## Implemented CmRDTs
 
 - **`GCounter`**: A Grow-Only Counter.
 - **`PNCounter`**: A Positive-Negative Counter.
 
----
-## Testing 🧪
+## Testing
 
 This library is tested using a combination of:
 
 - **Unit tests** for core logic within each module.
 - **Property-based tests** with `proptest` to rigorously verify that the CRDTs adhere to their mathematical properties (commutativity, associativity, idempotence) across a wide range of randomized scenarios.
 
----
 ## Roadmap 🗺️
 
 The near-term goals for this library are:
