@@ -1,4 +1,4 @@
-use cmrdt::{ActorId, AddCtx, CmRDT, Dot, PNCounter, VClock};
+use cmrdts::{ActorId, AddCtx, CmRDT, Dot, PNCounter, VClock};
 
 fn main() {
     // 1. Define unique IDs for our two replicas (Alice and Bob)
@@ -20,7 +20,7 @@ fn main() {
         },
         clock: VClock::default(),
     };
-    alice_counter.apply(cmrdt::pn_counter::Op::Inc(5), alice_op_ctx);
+    alice_counter.apply(cmrdts::pn_counter::Op::Inc(5), alice_op_ctx);
     println!("After Alice increments by 5: {}", alice_counter.read()); // => 5
 
     // 4. Bob increments by 2 and decrements by 1
@@ -38,8 +38,8 @@ fn main() {
         },
         clock: VClock::default(),
     };
-    bob_counter.apply(cmrdt::pn_counter::Op::Inc(2), bob_op_1_ctx);
-    bob_counter.apply(cmrdt::pn_counter::Op::Dec(1), bob_op_2_ctx);
+    bob_counter.apply(cmrdts::pn_counter::Op::Inc(2), bob_op_1_ctx);
+    bob_counter.apply(cmrdts::pn_counter::Op::Dec(1), bob_op_2_ctx);
     println!("Bob's counter value: {}", bob_counter.read()); // => 1 (2 - 1)
 
     // 5. Now, let's merge Bob's changes into Alice's counter

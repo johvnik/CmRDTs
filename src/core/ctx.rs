@@ -1,6 +1,6 @@
-use crate::dot::Dot;
-use crate::vclock::VClock;
 use serde::{Deserialize, Serialize};
+
+use crate::core::{Dot, VClock};
 
 /// Context required for applying a new operation (the "add" context).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

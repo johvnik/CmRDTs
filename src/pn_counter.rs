@@ -1,6 +1,5 @@
-use crate::ctx::AddCtx;
-use crate::gcounter::{self, GCounter};
-use crate::traits::CmRDT;
+use crate::core::{AddCtx, CmRDT};
+use crate::g_counter::{self, GCounter};
 use serde::{Deserialize, Serialize};
 
 /// A Positive-Negative Counter.
@@ -22,8 +21,8 @@ impl CmRDT for PNCounter {
 
     fn apply(&mut self, op: Self::Op, ctx: AddCtx) {
         match op {
-            Op::Inc(amount) => self.increments.apply(gcounter::Op::Inc(amount), ctx),
-            Op::Dec(amount) => self.decrements.apply(gcounter::Op::Inc(amount), ctx),
+            Op::Inc(amount) => self.increments.apply(g_counter::Op::Inc(amount), ctx),
+            Op::Dec(amount) => self.decrements.apply(g_counter::Op::Inc(amount), ctx),
         }
     }
 

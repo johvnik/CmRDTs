@@ -1,4 +1,4 @@
-use crate::ctx::AddCtx;
+use crate::core::AddCtx;
 
 /// The core trait for all CmRDTs.
 pub trait CmRDT {

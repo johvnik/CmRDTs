@@ -1,6 +1,4 @@
-use crate::actor::ActorId;
-use crate::ctx::AddCtx;
-use crate::traits::CmRDT;
+use crate::core::{ActorId, AddCtx, CmRDT};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
