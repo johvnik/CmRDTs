@@ -1,23 +1,13 @@
-use cmrdts::core::{ActorId, AddCtx, CmRDT, Dot, VClock};
+use cmrdts::core::{ActorId, Replica};
 use cmrdts::g_counter::{GCounter, Op};
 use proptest::prelude::*;
 
-// Helper to create a simple context for a given actor.
-fn ctx_for(actor: u64) -> AddCtx {
-    AddCtx {
-        dot: Dot {
-            actor: ActorId(actor),
-            counter: 1,
-        },
-        clock: VClock::default(),
-    }
-}
-
-// Proptest strategy to generate a vector of random operations.
-fn arb_ops() -> impl Strategy<Value = Vec<(u64, u64)>> {
+// Proptest strategy to generate a vector of random increment amounts.
+// We don't need to generate actor IDs here, as the test setup will assign them.
+fn arb_ops() -> impl Strategy<Value = Vec<u64>> {
     prop::collection::vec(
-        (0..10u64, 1..100u64), // (actor_id, increment_amount)
-        0..20,                 // Generate between 0 and 20 operations
+        1..100u64, // increment_amount
+        0..15,     // Generate between 0 and 15 operations per replica
     )
 }
 
@@ -30,57 +20,60 @@ proptest! {
         ops_c in arb_ops()
     ) {
         // --- Arrange ---
-        let mut replica_a = GCounter::default();
-        for (actor, amount) in ops_a {
-            replica_a.apply(Op::Inc(amount), ctx_for(actor));
+        // Create three distinct replicas, each with its own actor ID.
+        let mut replica_a = Replica::new(ActorId(1), GCounter::default());
+        for amount in ops_a {
+            replica_a.apply(Op::Inc(amount));
         }
 
-        let mut replica_b = GCounter::default();
-        for (actor, amount) in ops_b {
-            replica_b.apply(Op::Inc(amount), ctx_for(actor));
+        let mut replica_b = Replica::new(ActorId(2), GCounter::default());
+        for amount in ops_b {
+            replica_b.apply(Op::Inc(amount));
         }
 
-        let mut replica_c = GCounter::default();
-        for (actor, amount) in ops_c {
-            replica_c.apply(Op::Inc(amount), ctx_for(actor));
+        let mut replica_c = Replica::new(ActorId(3), GCounter::default());
+        for amount in ops_c {
+            replica_c.apply(Op::Inc(amount));
         }
+
 
         // --- Act & Assert ---
 
         // 1. Test Commutativity: a.merge(b) == b.merge(a)
-        // Each test now starts with fresh clones to avoid ownership issues.
         {
             let mut merged_ab = replica_a.clone();
-            merged_ab.merge(replica_b.clone());
+            merged_ab.merge(replica_b.state().clone(), replica_b.clock().clone());
 
             let mut merged_ba = replica_b.clone();
-            merged_ba.merge(replica_a.clone());
+            merged_ba.merge(replica_a.state().clone(), replica_a.clock().clone());
 
-            prop_assert_eq!(merged_ab, merged_ba, "Commutativity failed");
+            // We only need to assert the CRDT state, as clock state is an implementation detail
+            // of the replica, not a property of the CRDT itself.
+            prop_assert_eq!(merged_ab.state(), merged_ba.state(), "Commutativity failed");
         }
 
 
         // 2. Test Associativity: (a.merge(b)).merge(c) == a.merge(b.merge(c))
         {
             let mut merged_ab = replica_a.clone();
-            merged_ab.merge(replica_b.clone());
+            merged_ab.merge(replica_b.state().clone(), replica_b.clock().clone());
             let mut merged_ab_c = merged_ab;
-            merged_ab_c.merge(replica_c.clone());
+            merged_ab_c.merge(replica_c.state().clone(), replica_c.clock().clone());
 
 
             let mut merged_bc = replica_b.clone();
-            merged_bc.merge(replica_c.clone());
+            merged_bc.merge(replica_c.state().clone(), replica_c.clock().clone());
             let mut merged_a_bc = replica_a.clone();
-            merged_a_bc.merge(merged_bc);
+            merged_a_bc.merge(merged_bc.state().clone(), merged_bc.clock().clone());
 
-            prop_assert_eq!(merged_ab_c, merged_a_bc, "Associativity failed");
+            prop_assert_eq!(merged_ab_c.state(), merged_a_bc.state(), "Associativity failed");
         }
 
         // 3. Test Idempotence: a.merge(a) == a
         {
             let mut idempotent_a = replica_a.clone();
-            idempotent_a.merge(replica_a.clone());
-            prop_assert_eq!(idempotent_a, replica_a, "Idempotence failed");
+            idempotent_a.merge(replica_a.state().clone(), replica_a.clock().clone());
+            prop_assert_eq!(idempotent_a.state(), replica_a.state(), "Idempotence failed");
         }
     }
 }

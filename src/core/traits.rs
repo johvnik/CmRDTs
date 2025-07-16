@@ -3,7 +3,7 @@ use crate::core::AddCtx;
 /// The core trait for all CmRDTs.
 pub trait CmRDT {
     /// The operation type that can be applied to this CRDT.
-    type Op;
+    type Op: Clone;
 
     /// The value type that this CRDT represents.
     type Value;

@@ -2,7 +2,7 @@ use crate::core::{AddCtx, CmRDT};
 use crate::g_counter::{self, GCounter};
 use serde::{Deserialize, Serialize};
 
-/// A Positive-Negative Counter.
+/// A Positive-Negative Counter, implemented as a composition of two op-based G-Counters.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PNCounter {
     pub increments: GCounter,
@@ -10,6 +10,7 @@ pub struct PNCounter {
 }
 
 /// Operations for a PNCounter can be increments or decrements.
+#[derive(Debug, Clone, Copy)]
 pub enum Op {
     Inc(u64),
     Dec(u64),
@@ -39,57 +40,47 @@ impl CmRDT for PNCounter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{ActorId, Dot, VClock};
-
-    fn actor_ctx(id: u64, counter: u64) -> AddCtx {
-        AddCtx {
-            dot: Dot {
-                actor: ActorId(id),
-                counter,
-            },
-            clock: VClock::default(),
-        }
-    }
+    use crate::core::{ActorId, Replica};
 
     #[test]
     fn test_apply_inc_and_dec() {
         // Arrange
-        let mut counter = PNCounter::default();
+        let mut replica = Replica::new(ActorId(1), PNCounter::default());
 
         // Act
-        counter.apply(Op::Inc(10), actor_ctx(1, 1));
-        counter.apply(Op::Dec(3), actor_ctx(1, 2));
-        counter.apply(Op::Inc(5), actor_ctx(1, 3));
+        replica.apply(Op::Inc(10));
+        replica.apply(Op::Dec(3));
+        replica.apply(Op::Inc(5));
 
         // Assert
-        assert_eq!(counter.read(), 12); // (10 + 5) - 3
+        assert_eq!(replica.read(), 12); // (10 + 5) - 3
     }
 
     #[test]
     fn test_read_value_can_be_negative() {
         // Arrange
-        let mut counter = PNCounter::default();
+        let mut replica = Replica::new(ActorId(1), PNCounter::default());
 
         // Act
-        counter.apply(Op::Inc(5), actor_ctx(1, 1));
-        counter.apply(Op::Dec(10), actor_ctx(1, 2));
+        replica.apply(Op::Inc(5));
+        replica.apply(Op::Dec(10));
 
         // Assert
-        assert_eq!(counter.read(), -5);
+        assert_eq!(replica.read(), -5);
     }
 
     #[test]
     fn test_merge_with_separate_replicas() {
         // Arrange
-        let mut replica_a = PNCounter::default();
-        let mut replica_b = PNCounter::default();
+        let mut replica_a = Replica::new(ActorId(1), PNCounter::default());
+        let mut replica_b = Replica::new(ActorId(2), PNCounter::default());
 
         // Act: replica_a gets increments, replica_b gets decrements
-        replica_a.apply(Op::Inc(10), actor_ctx(1, 1));
-        replica_b.apply(Op::Dec(4), actor_ctx(2, 1));
+        replica_a.apply(Op::Inc(10));
+        replica_b.apply(Op::Dec(4));
 
-        // Merge replica_b into replica_a
-        replica_a.merge(replica_b);
+        // Merge replica_b's state and clock into replica_a
+        replica_a.merge(replica_b.state().clone(), replica_b.clock().clone());
 
         // Assert: the final value reflects both operations
         assert_eq!(replica_a.read(), 6); // 10 - 4
@@ -98,24 +89,23 @@ mod tests {
     #[test]
     fn test_merge_is_commutative() {
         // Arrange
-        let mut replica_a = PNCounter::default();
-        replica_a.apply(Op::Inc(10), actor_ctx(1, 1));
-        replica_a.apply(Op::Dec(2), actor_ctx(1, 2)); // Final value: 8
+        let mut replica_a = Replica::new(ActorId(1), PNCounter::default());
+        replica_a.apply(Op::Inc(10));
+        replica_a.apply(Op::Dec(2)); // Final value: 8
 
-        let mut replica_b = PNCounter::default();
-        replica_b.apply(Op::Inc(5), actor_ctx(2, 1));
-        replica_b.apply(Op::Dec(8), actor_ctx(2, 2)); // Final value: -3
+        let mut replica_b = Replica::new(ActorId(2), PNCounter::default());
+        replica_b.apply(Op::Inc(5));
+        replica_b.apply(Op::Dec(8)); // Final value: -3
 
         let mut merged_ab = replica_a.clone();
+        merged_ab.merge(replica_b.state().clone(), replica_b.clock().clone());
+
         let mut merged_ba = replica_b.clone();
+        merged_ba.merge(replica_a.state().clone(), replica_a.clock().clone());
 
-        // Act
-        merged_ab.merge(replica_b); // Merge B into A
-        merged_ba.merge(replica_a); // Merge A into B
-
-        // Assert: both should converge to the same value
+        // Assert: both should converge to the same value and state
         assert_eq!(merged_ab.read(), 5); // (10 + 5) - (2 + 8) = 5
         assert_eq!(merged_ba.read(), 5);
-        assert_eq!(merged_ab, merged_ba);
+        assert_eq!(merged_ab.state(), merged_ba.state());
     }
 }

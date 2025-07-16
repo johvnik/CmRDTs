@@ -1,48 +1,19 @@
-use cmrdts::core::{ActorId, AddCtx, CmRDT, Dot, VClock};
+use cmrdts::core::{ActorId, Replica};
 use cmrdts::pn_counter::{Op, PNCounter};
 use proptest::prelude::*;
-use std::collections::BTreeMap;
 
-// Proptest strategy to generate a vector of random operations.
-fn arb_ops() -> impl Strategy<Value = Vec<(u64, bool, u64)>> {
-    prop::collection::vec(
-        (
-            0..5u64,         // actor_id (small range to ensure conflicts)
-            prop::bool::ANY, // true for Inc, false for Dec
-            1..50u64,        // amount
-        ),
-        0..15, // Generate between 0 and 15 operations per replica
-    )
+// A strategy to generate a single random Op.
+fn arb_op() -> impl Strategy<Value = Op> {
+    prop_oneof![(1..50u64).prop_map(Op::Inc), (1..50u64).prop_map(Op::Dec),]
 }
 
-// Helper function to apply a list of generated operations to a replica.
-fn apply_ops(
-    replica: &mut PNCounter,
-    ops: &[(u64, bool, u64)],
-    dot_counters: &mut BTreeMap<u64, u64>,
-) {
-    for &(actor, is_inc, amount) in ops {
-        let op_counter = dot_counters.entry(actor).or_insert(0);
-        *op_counter += 1;
-
-        let op = if is_inc {
-            Op::Inc(amount)
-        } else {
-            Op::Dec(amount)
-        };
-        let ctx = AddCtx {
-            dot: Dot {
-                actor: ActorId(actor),
-                counter: *op_counter,
-            },
-            clock: VClock::default(),
-        };
-        replica.apply(op, ctx);
-    }
+// A strategy to generate a vector of random operations.
+fn arb_ops() -> impl Strategy<Value = Vec<Op>> {
+    prop::collection::vec(arb_op(), 0..15)
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::with_cases(1024))]
     #[test]
     fn test_pn_counter_properties(
         ops_a in arb_ops(),
@@ -50,79 +21,70 @@ proptest! {
         ops_c in arb_ops()
     ) {
         // --- Arrange ---
-        let mut replica_a = PNCounter::default();
-        let mut replica_b = PNCounter::default();
-        let mut replica_c = PNCounter::default();
+        let mut replica_a = Replica::new(ActorId(1), PNCounter::default());
+        for op in ops_a.clone() {
+            replica_a.apply(op);
+        }
 
-        let mut dot_counters = BTreeMap::new();
+        let mut replica_b = Replica::new(ActorId(2), PNCounter::default());
+        for op in ops_b.clone() {
+            replica_b.apply(op);
+        }
 
-        apply_ops(&mut replica_a, &ops_a, &mut dot_counters);
-        apply_ops(&mut replica_b, &ops_b, &mut dot_counters);
-        apply_ops(&mut replica_c, &ops_c, &mut dot_counters);
+        let mut replica_c = Replica::new(ActorId(3), PNCounter::default());
+        for op in ops_c.clone() {
+            replica_c.apply(op);
+        }
 
         // --- Act & Assert ---
 
-        // 1. Test Commutativity: a.merge(b) == b.merge(a)
+        // 1. Test Commutativity
         {
             let mut merged_ab = replica_a.clone();
-            merged_ab.merge(replica_b.clone());
+            merged_ab.merge(replica_b.state().clone(), replica_b.clock().clone());
 
             let mut merged_ba = replica_b.clone();
-            merged_ba.merge(replica_a.clone());
+            merged_ba.merge(replica_a.state().clone(), replica_a.clock().clone());
 
-            prop_assert_eq!(merged_ab, merged_ba, "Commutativity failed");
+            prop_assert_eq!(merged_ab.state(), merged_ba.state(), "Commutativity failed");
         }
 
-        // 2. Test Associativity: (a.merge(b)).merge(c) == a.merge(b.merge(c))
+
+        // 2. Test Associativity
         {
             let mut merged_ab = replica_a.clone();
-            merged_ab.merge(replica_b.clone());
+            merged_ab.merge(replica_b.state().clone(), replica_b.clock().clone());
             let mut merged_ab_c = merged_ab;
-            merged_ab_c.merge(replica_c.clone());
-
+            merged_ab_c.merge(replica_c.state().clone(), replica_c.clock().clone());
 
             let mut merged_bc = replica_b.clone();
-            merged_bc.merge(replica_c.clone());
+            merged_bc.merge(replica_c.state().clone(), replica_c.clock().clone());
             let mut merged_a_bc = replica_a.clone();
-            merged_a_bc.merge(merged_bc);
+            merged_a_bc.merge(merged_bc.state().clone(), merged_bc.clock().clone());
 
-            prop_assert_eq!(merged_ab_c, merged_a_bc, "Associativity failed");
+            prop_assert_eq!(merged_ab_c.state(), merged_a_bc.state(), "Associativity failed");
         }
 
-        // 3. Test Idempotence: a.merge(a) == a
+        // 3. Test Idempotence
         {
             let mut idempotent_a = replica_a.clone();
-            idempotent_a.merge(replica_a.clone());
-            prop_assert_eq!(idempotent_a, replica_a.clone(), "Idempotence failed");
+            idempotent_a.merge(replica_a.state().clone(), replica_a.clock().clone());
+            prop_assert_eq!(idempotent_a.state(), replica_a.state(), "Idempotence failed");
         }
 
         // 4. Test Correctness of final value
         {
-            let mut expected_increments = BTreeMap::new();
-            for (actor, count) in replica_a.increments.counters.iter()
-                .chain(replica_b.increments.counters.iter())
-                .chain(replica_c.increments.counters.iter())
-            {
-                let entry = expected_increments.entry(*actor).or_insert(0);
-                *entry = (*entry).max(*count);
+            let mut expected_sum: i64 = 0;
+            for op in ops_a.iter().chain(ops_b.iter()).chain(ops_c.iter()) {
+                match op {
+                    Op::Inc(amount) => expected_sum += *amount as i64,
+                    Op::Dec(amount) => expected_sum -= *amount as i64,
+                }
             }
 
-            let mut expected_decrements = BTreeMap::new();
-            for (actor, count) in replica_a.decrements.counters.iter()
-                .chain(replica_b.decrements.counters.iter())
-                .chain(replica_c.decrements.counters.iter())
-            {
-                let entry = expected_decrements.entry(*actor).or_insert(0);
-                *entry = (*entry).max(*count);
-            }
-
-            let expected_sum = expected_increments.values().sum::<u64>() as i64 -
-                               expected_decrements.values().sum::<u64>() as i64;
-
-            // Merge all replicas together
             let mut final_replica = replica_a.clone();
-            final_replica.merge(replica_b.clone());
-            final_replica.merge(replica_c.clone());
+            final_replica.merge(replica_b.state().clone(), replica_b.clock().clone());
+            final_replica.merge(replica_c.state().clone(), replica_c.clock().clone());
 
             prop_assert_eq!(final_replica.read(), expected_sum, "Final value calculation is incorrect");
         }
