@@ -13,3 +13,6 @@ categories = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.0"
