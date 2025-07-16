@@ -11,11 +11,18 @@ This library provides a set of simple, serializable, and composable CRDTs suitab
 - **`PNCounter`**: A Positive-Negative Counter.
 
 ---
+## Testing 🧪
+
+This library is tested using a combination of:
+
+- **Unit tests** for core logic within each module.
+- **Property-based tests** with `proptest` to rigorously verify that the CRDTs adhere to their mathematical properties (commutativity, associativity, idempotence) across a wide range of randomized scenarios.
+
+---
 ## Roadmap 🗺️
 
 The near-term goals for this library are:
 
-- [ ] Add comprehensive testing and documentation for all data types.
 - [ ] Implement `LWWRegister` (Last-Write-Wins Register).
 - [ ] Implement `GSet` (Grow-Only Set).
 - [ ] Implement `OrSet` (Observed-Remove Set).
