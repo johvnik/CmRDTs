@@ -10,24 +10,29 @@ A collection of **Commutative Replicated Data Types (CmRDTs)** implemented in pu
 This library provides a set of simple, serializable, and composable CmRDTs with a focus on network efficiency and practical, real-world use.
 
 ## Key Features
-- ⚡️ Efficient Operation-Based Sync: Sends small, discrete updates instead of entire data states, minimizing network traffic.
+- ⚡️ **Efficient Operation-Based Sync:** Sends small, discrete updates instead of entire data states, minimizing network traffic.
 
-- 🌐 Resilient & Simple Networking: Works reliably over standard networks with at-least-once, unordered message delivery, removing the need for complex network guarantees.
+- 🌐 **Resilient & Simple Networking:** Works reliably over standard networks with at-least-once, unordered message delivery, removing the need for complex network guarantees.
 
-- 🔄 Flexible Sync Strategies: Supports both lightweight op-based replication and full-state merges for maximum flexibility.
+- 🕰️ **Causal Timestamps:** Uses a Hybrid Logical Clock (HLC) to generate causally-ordered event IDs, ensuring intuitive behavior for LWW types.
+
+- 🔄 **Flexible Sync Strategies:** Supports both lightweight op-based replication and full-state merges for maximum flexibility.
 
 ## Core Design
 
 This library's implementation is guided by a pragmatic approach to distributed data synchronization, focusing on providing resilience over real-world networks.
 
-To ensure correctness, each operation is bundled with a minimal amount of metadata, or **causal context** (`AddCtx`). This context makes replication robust by providing two key guarantees. First, it contains a **`Dot`** that makes every operation idempotent, relaxing the network requirement from a complex *exactly-once* to a simpler ***at-least-once*** delivery. Second, it includes a **`VClock`** to track causal history, allowing operations to be correctly integrated even when they arrive out of order. This relaxes the delivery requirement from *causal-ordered* to simple ***unordered*** delivery.
-
+To ensure correctness, each operation is bundled with a minimal amount of metadata, or **causal context** (`AddCtx`).
+This context contains a **`VClock`**, which captures the complete history of events the replica has seen.
+This history is then used to generate a **`Dot`**, which functions as a Hybrid Logical Clock (HLC) timestamp for the operation.
+This single `Dot` provides both **idempotency** (due to its uniqueness) and **causal ordering** (as its internal counter is guaranteed to be greater than any previously seen event).
+This robust, unified mechanism is what relaxes the network requirements from complex `exactly-once`, `causal-ordered` delivery to a simpler `at-least-once`, `unordered` model.
 The core components that enable this design are:
 
--  **`Dot` (Unique Operation Identity):** A tuple of `(ActorId, counter)` that gives every operation a globally unique and immutable identifier.
--  **`VClock` (Causal History):** A map of `ActorId` to the latest `counter` seen from that actor, capturing a replica's knowledge of the system's history.
--  **`AddCtx` (The Causal Context):** The struct containing the `Dot` and `VClock` that travels with every operation, providing all necessary metadata for a safe update.
--  **`Replica` (The Actor State):** A user-facing wrapper that manages the CRDT state, the actor's local `VClock`, and is responsible for generating and applying the `AddCtx`.
+-  **`Dot` (Unique Operation Identity):** A tuple of `(ActorId, counter)` that serves as a causally-aware, globally unique timestamp. The `counter` is a monotonically increasing logical time generated using HLC logic, while the `ActorId` acts as a tie-breaker.
+-  **`VClock` (Causal History):** A map of `ActorId` to the latest `counter` seen from that actor. It captures a replica's knowledge of the system's history and provides the input needed to generate new HLC timestamps.
+-  **`AddCtx` (The Causal Context):** The struct containing the `Dot` (the event's timestamp) and the `VClock` (the historical context) that travels with every operation.
+-  **`Replica` (The Actor State):** A user-facing wrapper that manages the CRDT state, the actor's local `VClock`. It is responsible for generating new HLC timestamps for each local operation.
 
 While the causal context adds a small overhead to each operation, the payload typically remains significantly smaller than synchronizing the full state of a CvRDT. This design provides the efficiency of an operation-based system with the flexibility to also merge full states, which is useful for an initial sync or for reconciling replicas that have been offline for extended periods.
 
