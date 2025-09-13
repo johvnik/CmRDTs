@@ -41,6 +41,7 @@ While the causal context adds a small overhead to each operation, the payload ty
 - **`GCounter`**: A Grow-Only Counter.
 - **`PNCounter`**: A Positive-Negative Counter.
 - **`LWWRegister`**: A Last-Write-Wins Register.
+- **`GSet`**: A Grow-Only Set.
 
 ## Testing ⚕
 
@@ -53,7 +54,6 @@ This library is tested using a combination of:
 
 The near-term goals for this library are:
 
-- [ ] Implement `GSet` (Grow-Only Set).
 - [ ] Implement `OrSet` (Observed-Remove Set).
 - [ ] Implement `RGA` (Replicable Growable Array).
 
