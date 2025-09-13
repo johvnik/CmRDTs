@@ -42,6 +42,13 @@ While the causal context adds a small overhead to each operation, the payload ty
 - **`PNCounter`**: A Positive-Negative Counter.
 - **`LWWRegister`**: A Last-Write-Wins Register.
 
+## Testing ⚕
+
+This library is tested using a combination of:
+
+- **Unit tests** for core logic within each module.
+- **Property-based tests** with `proptest` to rigorously verify that the CRDTs adhere to their mathematical properties (commutativity, associativity, idempotence) across a wide range of randomized scenarios.
+
 ## Roadmap 𖤓
 
 The near-term goals for this library are:
@@ -49,13 +56,6 @@ The near-term goals for this library are:
 - [ ] Implement `GSet` (Grow-Only Set).
 - [ ] Implement `OrSet` (Observed-Remove Set).
 - [ ] Implement `RGA` (Replicable Growable Array).
-
-## Testing ⚕
-
-This library is tested using a combination of:
-
-- **Unit tests** for core logic within each module.
-- **Property-based tests** with `proptest` to rigorously verify that the CRDTs adhere to their mathematical properties (commutativity, associativity, idempotence) across a wide range of randomized scenarios.
 
 ## License
 
