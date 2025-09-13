@@ -191,4 +191,48 @@ mod tests {
         replica_a.merge(replica_b.state().clone(), replica_b.clock().clone());
         assert_eq!(replica_a.read(), expected_read);
     }
+
+    #[test]
+    fn test_causality_actor_b_wins_after_syncing() {
+        // Arrange: Create two replicas
+        let mut replica_a = Replica::new(ActorId(1), LWWRegister::<String>::default());
+        let mut replica_b = Replica::new(ActorId(2), LWWRegister::<String>::default());
+
+        let mut a_ops = Vec::new();
+
+        // Act 1: Actor A performs 10 operations in a row.
+        for i in 0..10 {
+            let op_val = format!("A_{}", i);
+            let (op, ctx) = replica_a.apply(Op::Set(op_val));
+            a_ops.push((op, ctx));
+        }
+
+        // Sanity check: Replica A's value should be the last one it set.
+        // Its dot's counter will be 10.
+        assert_eq!(replica_a.read(), Some("A_9".to_string()));
+        assert_eq!(replica_a.state().dot.unwrap().counter, 10);
+
+        // Act 2: Actor B receives all of Actor A's operations.
+        for (op, ctx) in a_ops {
+            replica_b.apply_remote(op, ctx);
+        }
+
+        // Sanity check: Replica B should now be in sync with A.
+        // Its VClock should know that the latest time is 10.
+        assert_eq!(replica_b.read(), Some("A_9".to_string()));
+        assert_eq!(replica_b.clock().max_counter(), 10);
+
+        // Act 3: Actor B, having seen all of A's work, performs a single new operation.
+        replica_b.apply(Op::Set("B_wins".to_string()));
+
+        // Assert: Actor B's new write must win.
+        // Its HLC logic should generate a dot with a counter of 11 (max_counter + 1),
+        // which is greater than A's dot with a counter of 10.
+        assert_eq!(replica_b.read(), Some("B_wins".to_string()));
+
+        // We also inspect the internal dot to be certain.
+        let final_dot = replica_b.state().dot.unwrap();
+        assert_eq!(final_dot.actor, ActorId(2));
+        assert_eq!(final_dot.counter, 11);
+    }
 }
