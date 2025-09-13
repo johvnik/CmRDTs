@@ -1,5 +1,6 @@
 pub mod core;
 pub mod g_counter;
+pub mod lww_register;
 pub mod pn_counter;
 
 // Public API
