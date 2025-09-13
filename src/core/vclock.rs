@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use crate::core::ActorId;
+use crate::core::{ActorId, Dot};
 
 /// A Vector Clock tracks the state of all actors.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -11,6 +11,13 @@ impl VClock {
     /// Returns the highest counter value in the clock for any actor.
     pub fn max_counter(&self) -> u64 {
         self.0.values().max().cloned().unwrap_or(0)
+    }
+
+    /// Checks if the clock has seen the given dot.
+    pub fn contains(&self, dot: &Dot) -> bool {
+        self.0
+            .get(&dot.actor)
+            .map_or(false, |counter| *counter >= dot.counter)
     }
 
     /// Merges another VClock into this one, taking the maximum of each entry.
