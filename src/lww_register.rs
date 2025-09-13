@@ -12,7 +12,7 @@ use std::fmt::Debug;
 /// the `Dot` (acting as a Hybrid Logical Clock timestamp) serves as the timestamp.
 /// This implementation uses `Option` to correctly model the initial state where
 /// no value has been set yet.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct LWWRegister<T: Clone> {
     /// The current value of the register, if one has been set.
     pub value: Option<T>,
