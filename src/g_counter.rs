@@ -98,12 +98,12 @@ mod tests {
         // Act: Apply two distinct operations from the same actor
         replica.apply(Op::Inc(10)); // Generates Dot { actor: 1, counter: 1 }
         replica.apply(Op::Inc(5)); // Generates Dot { actor: 1, counter: 2 }
-        replica.apply(Op::Inc(3)); // Generates Dot { actor: 1, counter: 2 }
+        replica.apply(Op::Inc(6)); // Generates Dot { actor: 1, counter: 3 }
 
         // Assert: The internal state should contain two separate operations,
         // and the read value should be their sum.
         assert_eq!(replica.state().ops.len(), 3);
-        assert_eq!(replica.read(), 18);
+        assert_eq!(replica.read(), 21);
     }
 
     #[test]
