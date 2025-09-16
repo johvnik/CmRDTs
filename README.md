@@ -1,8 +1,8 @@
 # CmRDTs
 
-[![Tests](https://github.com/johvnik/CmRDTs/actions/workflows/rust.yml/badge.svg)](https://github.com/johvnik/CmRDTs/actions/workflows/rust.yml)
+[![Tests](https://github.com/johvnik/cmrdts/actions/workflows/rust.yml/badge.svg)](https://github.com/johvnik/cmrdts/actions/workflows/rust.yml)
 [![Crates.io](https://img.shields.io/crates/v/cmrdts.svg)](https://crates.io/crates/cmrdts)
-[![License](https://img.shields.io/crates/l/cmrdts.svg)](https://github.com/johvnik/CmRDTs/blob/main/LICENSE-MIT)
+[![License](https://img.shields.io/crates/l/cmrdts.svg)](https://github.com/johvnik/cmrdts/blob/main/LICENSE-MIT)
 [![Rust 1.70+](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://rust-lang.org)
 
 A collection of **Commutative Replicated Data Types (CmRDTs)** implemented in pure Rust, suitable for distributed systems and local-first applications.
