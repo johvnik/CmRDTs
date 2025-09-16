@@ -2,10 +2,10 @@
 name = "cmrdts"
 version = "0.3.0"
 edition = "2024"
-authors = ["Johvnik <cmrdts@johvnik.com>"]
+authors = ["johvnik <cmrdts@johvnik.com>"]
 description = "A collection of Commutative Replicated Data Types (CmRDTs) implemented in pure Rust."
 license = "MIT"
-repository = "https://github.com/johvnik/CmRDTs"
+repository = "https://github.com/johvnik/cmrdts"
 readme = "README.md"
 keywords = []
 categories = []
